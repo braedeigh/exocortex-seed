@@ -1,0 +1,47 @@
+# Environments
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+.claude/
+
+# Runtime auth / sessions (regenerated on first run)
+build/auth.json
+build/sessions.json
+
+# Logs
+build/*.log
+build/*.log.*
+
+# Personal media / uploads (never commit)
+build/receipts/*
+!build/receipts/.gitkeep
+build/uploads/*
+!build/uploads/.gitkeep
+build/data/bank_csvs/
+
+# Personal journal content (Keeper writes here once you're using it)
+tulku/Journal/Daily/*.md
+tulku/Journal/Weekly/*.md
+tulku/Journal/Daily/screenshots/
+tulku/tulku-diary/[0-9]*
+tulku/Health/Daily/*
+!tulku/Health/Daily/.gitkeep
+!tulku/Journal/Daily/.gitkeep
+!tulku/Journal/Weekly/.gitkeep
+tulku/Health/Food/*.md
+!tulku/Health/Food/.gitkeep
+tulku/Patterns/*.md
+!tulku/Patterns/.gitkeep
+tulku/people/
+tulku/habits.csv
+tulku/*.ics
+tulku/WORRIES.md
+tulku/SUNDAY.md
+tulku/TEACHINGS.md

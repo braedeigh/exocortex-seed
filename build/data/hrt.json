@@ -1,0 +1,8 @@
+{
+  "medication": "",
+  "method": "",
+  "cycle_days": 0,
+  "last_dose": null,
+  "next_due": null,
+  "prev_last_dose": null
+}

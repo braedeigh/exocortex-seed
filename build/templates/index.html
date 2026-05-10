@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Exocortex</title>
+<link rel="stylesheet" href="{{ v_static('css/style.css') }}">
+<link rel="stylesheet" href="{{ v_static('css/frosted.css') }}">
+<script>window.VIEW_MODE = "{{ view_mode }}";</script>
+</head>
+<body data-active-tab="{{ active_tab }}" data-item-name="{{ item_name|default('', true) }}" data-view-mode="{{ view_mode }}" class="{{ 'public-mode' if view_mode == 'public' else '' }}">
+<div class="container">
+    <div class="public-header">
+        <div class="public-header-name">Bradie Lee &nbsp;·&nbsp; Exocortex</div>
+        <div class="public-header-links">
+            <a href="/about" target="_top">About</a>
+            <a href="/login" target="_top" class="signin-btn">Sign in</a>
+        </div>
+    </div>
+    <div id="greeting" class="greeting"></div>
+    <div id="date-info" class="date-info"></div>
+
+    <!-- Tab selector -->
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+        <div class="time-selector" id="tab-selector" style="margin-bottom:0">
+            <a href="/" class="time-btn" data-tab="today" style="text-decoration:none" onclick="switchTab(event,'today')">To Do</a>
+            <a href="/map" class="time-btn" data-tab="map" style="text-decoration:none" onclick="switchTab(event,'map')">Life Map</a>
+            <a href="/kitchen" class="time-btn" data-tab="kitchen" style="text-decoration:none" onclick="switchTab(event,'kitchen')">Kitchen</a>
+            <a href="/inventory" class="time-btn" data-tab="inventory" style="text-decoration:none" onclick="switchTab(event,'inventory')">Inventory</a>
+            <a href="/money" class="time-btn" data-tab="money" style="text-decoration:none" onclick="switchTab(event,'money')">Money</a>
+        </div>
+    </div>
+
+    <!-- TODAY TAB -->
+    <div id="tab-today">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+            <div class="time-selector" id="time-selector" style="margin-bottom:0">
+                <button class="time-btn" data-time="morning" onclick="setTime('morning')">Morning</button>
+                <button class="time-btn" data-time="afternoon" onclick="setTime('afternoon')">Midday</button>
+                <button class="time-btn" data-time="evening" onclick="setTime('evening')">Evening</button>
+            </div>
+            <button class="time-btn" id="expand-btn" onclick="toggleExpandAll()" style="font-size:12px;color:var(--text-muted);cursor:pointer;border:1px solid var(--border);border-radius:6px;padding:5px 12px;background:none">Show all</button>
+        </div>
+
+        <div id="hrt"></div>
+        <div id="food-log-banner"></div>
+        <div id="linen-reminders"></div>
+        <div id="contact-reminders" class="auth-only"></div>
+        <div id="kitchen-list-area"></div>
+        <div id="kitchen-quick" class="auth-only"></div>
+        <div id="symptom-form-area" class="auth-only"></div>
+
+        <div class="two-col">
+            <div>
+                <div class="col-header">Habits</div>
+                <div id="habits-cards"></div>
+            </div>
+            <div>
+                <div class="col-header">To Do</div>
+                <div id="todo-cards"></div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- GROCERY TAB -->
+    <div id="tab-kitchen" style="display:none">
+        <div id="kitchen-tab-area"></div>
+        <div id="dev-notes-kitchen" class="auth-only" data-tab="kitchen"></div>
+    </div>
+
+    <!-- LIFE MAP TAB -->
+    <div id="tab-map" style="display:none">
+        <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
+            <button id="map-collapse-btn" onclick="toggleMapCollapse()" style="font-size:12px;color:var(--text-muted);cursor:pointer;border:1px solid var(--border);border-radius:6px;padding:5px 12px;background:none">Collapse all</button>
+        </div>
+
+        <details class="map-section" open>
+            <summary class="section-title" style="cursor:pointer">Habit Tracker</summary>
+            <div id="habit-tracker"></div>
+        </details>
+
+        <details class="map-section" open>
+            <summary class="section-title" style="cursor:pointer">Activity</summary>
+            <div id="activity-calendar"></div>
+        </details>
+
+        <details class="map-section auth-only" open>
+            <summary class="section-title" style="cursor:pointer">Contacts</summary>
+            <div id="contacts-area"></div>
+        </details>
+
+        <details class="map-section" open>
+            <summary class="section-title" style="cursor:pointer">Symptom Tracker</summary>
+            <div style="display:flex;gap:16px;align-items:flex-start">
+                <div id="dot-grid" class="dot-grid" style="flex:1;overflow-x:auto"></div>
+                <div id="dot-grid-key"></div>
+            </div>
+        </details>
+
+        <details class="map-section" open>
+            <summary class="section-title" style="cursor:pointer">Food Log</summary>
+            <div id="food-log-area"></div>
+        </details>
+    </div>
+
+    <!-- MONEY TAB -->
+    <div id="tab-money" style="display:none">
+        <div class="section-title" style="margin-top:0">Money</div>
+        <div id="quick-expense-area" class="auth-only"></div>
+        <div id="csv-import-area" class="auth-only"></div>
+        <div id="set-aside-area" class="auth-only"></div>
+        <div id="spending-breakdown-area"></div>
+        <div id="this-month-area"></div>
+        <div id="recent-expenses-area"></div>
+        <div id="subscriptions-area"></div>
+        <div id="budget-config-area" class="auth-only"></div>
+    </div>
+
+    <!-- INVENTORY TAB -->
+    <div id="tab-inventory" style="display:none">
+        <div id="buy-list-section">
+            <div class="section-title" style="margin-top:0">Inventory</div>
+            <div style="font-size:12px;color:var(--text-muted);margin:-8px 0 12px 0">
+                For things you own (clothes, jewelry, etc) &rarr;
+                <a href="https://github.com/braedeigh/inventory-app" target="_blank" rel="noopener" style="color:var(--ongoing);text-decoration:none">archivals (inventory-app)</a>
+            </div>
+            <div id="priority-notes-area"></div>
+            <div id="restock-banner-area"></div>
+            <div id="active-inventory-area"></div>
+            <div id="buy-list-area"></div>
+            <div id="past-inventory-area"></div>
+        </div>
+        <div id="item-buy-area" style="display:none"></div>
+    </div>
+
+    <div class="footer">Exocortex v0.4 &mdash; built by Bradie</div>
+</div>
+
+<!-- Delete confirmation modal -->
+<div class="modal-overlay" id="modal">
+    <div class="modal">
+        <p id="modal-text"></p>
+        <div class="modal-buttons">
+            <button class="modal-btn confirm" onclick="executeDelete()">Yes, remove</button>
+            <button class="modal-btn cancel" onclick="closeModal()">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<!-- Kitchen new-item category picker modal -->
+<div class="modal-overlay" id="kitchen-cat-modal">
+    <div class="modal" style="max-width:440px">
+        <p style="margin-bottom:12px">New item: <b id="kitchen-cat-modal-name"></b><br>
+            <span style="font-size:12px;color:var(--text-muted)">Pick a category</span>
+        </p>
+        <div id="kitchen-cat-modal-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px"></div>
+        <div class="modal-buttons">
+            <button class="modal-btn cancel" onclick="closeKitchenCatModal()">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<script src="{{ v_static('js/sky-theme.js') }}"></script>
+<script src="{{ v_static('js/api.js') }}"></script>
+<script src="{{ v_static('js/core.js') }}"></script>
+<script src="{{ v_static('js/health.js') }}"></script>
+<script src="{{ v_static('js/contacts.js') }}"></script>
+<script src="{{ v_static('js/habits.js') }}"></script>
+<script src="{{ v_static('js/todos.js') }}"></script>
+<script src="{{ v_static('js/food.js') }}"></script>
+<script src="{{ v_static('js/kitchen.js') }}"></script>
+<script src="{{ v_static('js/activity.js') }}"></script>
+<script src="{{ v_static('js/overview.js') }}"></script>
+<script src="{{ v_static('js/inventory.js') }}"></script>
+<script src="{{ v_static('js/money.js') }}"></script>
+<script src="{{ v_static('js/polling.js') }}"></script>
+
+<!-- JS split into /static/js/*.js files -->
+
+</body>
+</html>

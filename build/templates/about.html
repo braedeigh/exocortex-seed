@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>About — Exocortex</title>
+<style>
+:root {
+    --bg: #fafafa;
+    --card-bg: #fff;
+    --text: #1a1a1a;
+    --text-secondary: #555;
+    --text-muted: #888;
+    --border: #e5e5e5;
+    --ongoing: #1abc9c;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+}
+.container { max-width: 680px; margin: 0 auto; padding: 48px 24px; }
+h1 { font-size: 32px; font-weight: 700; margin-bottom: 8px; }
+.subtitle { font-size: 15px; color: var(--text-muted); margin-bottom: 40px; }
+h2 { font-size: 20px; font-weight: 700; margin-top: 36px; margin-bottom: 12px; color: var(--text); }
+p { font-size: 16px; margin-bottom: 16px; color: var(--text-secondary); }
+a { color: var(--ongoing); text-decoration: none; }
+a:hover { text-decoration: underline; }
+.back { display: inline-block; margin-bottom: 24px; font-size: 14px; font-weight: 600; color: var(--text-muted); }
+.back:hover { color: var(--text); }
+.divider { border: none; border-top: 1px solid var(--border); margin: 36px 0; }
+</style>
+</head>
+<body>
+<div class="container">
+    <a href="/" target="_top" class="back">&larr; Back to dashboard</a>
+
+    <h1>Exocortex</h1>
+    <p class="subtitle">An extended mind, built in public.</p>
+
+    <h2>Who I am</h2>
+    <p>Hi, I'm Bradie. I'm building this interface and posting it publicly online because I want to push the boundaries of what technology can do to improve my functionality day to day, as well as play with social norms about what we consider private. I'm a molecular biologist by training and got my PhD in plant biology from UC Berkeley, where I studied soil bacterial ecology.</p>
+
+    <p>I came to this idea because I struggle to maintain context about all of the various minmaxing habits I've been incorporating into my daily routine to improve my quality of life. After getting Long COVID at the end of my PhD, I had to figure out how to recover on my own using online resources when doctors failed me (including the Stanford Long COVID clinic). I found myself navigating a web of inflammation triggers, dietary restrictions, and recovery protocols that no single app could hold together. I notice that I struggle to incorporate habits easily, am forgetful about what I need to do, and often get lost in rumination spirals, so I've been creating what I consider to be a prosthesis to help me increase my functionality over time so that I can live a happy and healthy life.</p>
+
+    <p>That experience of fighting to understand my own body with inadequate tools is what inspired me to explore how AI could be used not just for personal health, but for sustainability more broadly, which I'll cover below. My training made me realize: all of the food I consume touches soil somewhere. The health of that soil is directly related to the health of my body. Healthier soil means I get more nutrients, fewer toxic chemicals, and tastier food. The more healthy I am, the more economic opportunities I have. The more money I have, the more I can spend on sustainable initiatives, such as buying healthier food. All of this snowballs.</p>
+
+    <h2>What this is</h2>
+    <p>I understand that all the parts are pieces of the whole. My food choices affect my sleep and increase anxiety via inflammation. Increased anxiety and lack of sleep impact my cognition and decision making capacity, and when I struggle to make good choices, I can't break myself out of this vicious loop. It can result in a spiral into a place where I am stuck intellectually, physically, economically. My year of unemployment post-PhD was frankly a nightmare, where I was stuck in bed not knowing what was happening to my body or how to fix it. I found the single biggest fix was my diet. Just tracking which foods inflame me is by itself an enormously demanding task. I have to test foods slowly and am restricted to a low histamine diet, but even within that I find I have individualized triggers. I needed a journal I could easily search and visualize to reduce the cognitive load of all of this, which is a huge drain on my energy and thought on top of getting my life together.</p>
+
+    <p>There are many health and habit tracking tools that do parts of what I am trying to build here, but the sheer number of apps creates a huge amount of friction to using this technology in a way that actually improves quality of life. Using natural language and an LLM subscription built on top of an interactive interface, it tracks my health, my food, my sleep, my symptoms, my habits, my to-do list, my contacts, my runs, my grocery trips, even my laundry. It has a journaling agent that prompts me to stay present, catches rumination spirals, and redirects me to tangible tasks that are laid out clearly on my interface. It has a nightly agent that reads my journal and extracts structured data while I sleep, posting it to the interface, which can then be queried using natural language by my other agents. It has a dev partner that helps me build the whole thing.</p>
+
+    <p>I built all of this in Claude Code, talking to an AI in a terminal. The website and the development environment are the same thing. I talk, it builds, the site updates. The exciting part for me is that I'm not a software engineer. I'm a PhD biologist with a health issue that threatened to ruin my life if I didn't apply my scientific training to healing myself. And I intend to not only survive, but flourish.</p>
+
+    <h2>Who it's for</h2>
+    <p>Even if no one else ever uses this, I've already found it useful in changing my own behaviors. I remember to clean the kitchen in a way that satisfies my housemate. I remember to take my medications and supplements. I track what I eat and can see when a food triggers a flare. I wash my sheets on time. I keep up with people I care about. Small things, but they add up to a life that actually functions.</p>
+
+    <p>That said, I want to improve the lives of people like me who had to fight for themselves to heal from chronic illness. People whose doctors said "keep a food diary" and they quit after three days. People who know their body is trying to tell them something but can't hold all the variables in their head long enough to figure out what. People who need a system that pays attention when they can't.</p>
+
+    <p>I believe that the tools we build to heal ourselves can bridge outward to worldly change. If we can help people understand their own bodies, that understanding compounds. Healthier people make better decisions, build stronger communities, and have the energy to care about things bigger than themselves.</p>
+
+    <h2>The vision</h2>
+    <p>Right now this is a personal tool, a Flask app running on my laptop. The vision is a conversational health platform where you just talk about your life and the AI extracts everything: food, sleep, symptoms, triggers, patterns. No forms. No dropdowns. You talk, it listens, it learns your body. In my science fiction utopian visions, most of these functions could be made completely frictionless with wearables such as smart glasses and watches, products such as Oura Ring, and always-on transcription devices.</p>
+
+    <p>The arc goes from conversational (talk to it) to ambient (wearables feed it) to invisible (it watches, knows, and only interrupts when it has something useful to say). I want to build this as a funnel into a post-phone world where technology promotes our health and wellbeing because it promotes the economy and the flourishing of the biosphere.</p>
+
+    <p>This is a huge vision, but I see this as the future of how things will go regardless of how I participate. So I am building something that works for me right now, and I am keeping a list of how this system has helped me and ways that it would actually improve my life. I am studying how habit formation works according to science, I am studying nutrition, I am applying my scientific training to the problem of living well. The personal health intelligence layer, the thing that knows your triggers, your patterns, your body, is the hardest part. That's what I'm building first. The hardware just feeds it better data over time.</p>
+
+    <p>Eventually, I would like this to become a product recommender that allows people to choose only the most healthy foods for their bodies. These foods are often the most sustainable: using less pesticides, sequestering more carbon into the soil which in turn promotes soil health and resilience, and creating national security by promoting the economy of resilient food supply chains. I feel that this vision is lofty, but achievable. It starts with each one of us making decisions that benefit both us and the collective.</p>
+
+    <hr class="divider">
+
+    <p style="font-size:14px;color:var(--text-muted)">Built with Claude Code. Started March 21, 2026, because I said "fuck it" and meant it.</p>
+    <p style="font-size:12px;color:var(--text-muted);margin-top:4px;font-style:italic">Claude wrote this for me and I decided to keep it because it made me laugh.</p>
+</div>
+</body>
+</html>
