@@ -161,6 +161,39 @@
     </div>
 </div>
 
+<!-- Kitchen "done shopping" modal — auto-pops when all items are checked -->
+<div class="modal-overlay" id="kitchen-done-modal" style="background:rgba(20,20,30,0.45);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);z-index:200">
+    <div class="modal" style="background:var(--card-bg);max-width:420px;width:92vw;padding:22px;text-align:left;border:1px solid var(--border);box-shadow:0 12px 40px rgba(0,0,0,0.4);color:var(--text)">
+        <div style="font-size:18px;font-weight:700;margin-bottom:6px;color:var(--text)">Done shopping? 🛒</div>
+        <div style="font-size:13px;color:var(--text-muted);margin-bottom:16px">Scan your receipt to log the trip (recommended — feeds spend tracking + buy-frequency), or finish without one.</div>
+        <label style="display:block;cursor:pointer;padding:12px 14px;border-radius:8px;background:var(--green);color:#fff;font-size:14px;font-weight:700;text-align:center;margin-bottom:8px">📷 Scan receipt
+            <input type="file" accept="image/*,.heic,.heif,.pdf" style="display:none" onchange="kitchenDoneScanReceipt(this.files[0])">
+        </label>
+        <button onclick="kitchenDoneNoReceipt()" style="display:block;width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);background:none;color:var(--text);font-size:13px;font-weight:600;cursor:pointer;margin-bottom:8px">Finish without receipt</button>
+        <button onclick="kitchenDoneNotYet()" style="display:block;width:100%;padding:8px;border-radius:8px;border:none;background:none;color:var(--text-muted);font-size:12px;cursor:pointer">Not yet — keep this trip open</button>
+    </div>
+</div>
+
+<!-- Receipt import modal -->
+<div class="modal-overlay" id="receipt-import-modal" style="background:rgba(20,20,30,0.35);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);z-index:200">
+    <div class="modal" id="receipt-import-box" style="background:var(--card-bg);max-width:720px;width:95vw;height:90vh;max-height:90vh;display:flex;flex-direction:column;padding:16px;text-align:left;border:1px solid var(--border);box-shadow:0 16px 60px rgba(0,0,0,0.5);color:var(--text)">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-shrink:0">
+            <b id="receipt-import-title" style="font-size:16px;color:var(--text)">Import receipt</b>
+            <button onclick="closeReceiptImportModal()" style="background:none;border:none;color:var(--text-muted);font-size:24px;cursor:pointer;line-height:1;padding:0 4px">&times;</button>
+        </div>
+        <div id="receipt-import-header" style="font-size:12px;color:var(--text-muted);margin-bottom:8px;flex-shrink:0"></div>
+        <div id="receipt-import-progress" style="font-size:11px;font-weight:700;margin-bottom:6px;flex-shrink:0"></div>
+        <div id="receipt-import-rows" style="flex:1;min-height:0;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:4px;background:var(--bg)"></div>
+        <div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap;flex-shrink:0">
+            <label style="font-size:12px;color:var(--text-muted);display:flex;align-items:center;gap:6px" title="Uncheck to skip this row (won't be added to the trip)">
+                <input type="checkbox" id="receipt-import-pantry" checked> Add to pantry
+            </label>
+            <button onclick="closeReceiptImportModal()" class="modal-btn cancel" style="margin-left:auto">Cancel</button>
+            <button onclick="submitReceiptImport()" class="modal-btn confirm" style="background:var(--green)">Import trip</button>
+        </div>
+    </div>
+</div>
+
 <script src="{{ v_static('js/sky-theme.js') }}"></script>
 <script src="{{ v_static('js/api.js') }}"></script>
 <script src="{{ v_static('js/core.js') }}"></script>

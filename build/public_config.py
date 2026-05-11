@@ -17,6 +17,8 @@ STREAMS = {
     "server_day_of_year": "public",
     "server_date": "public",
     "date": "public",
+    "days_clean": "public",
+    "days_prozac": "public",
 
     # ---- habits ----
     "habits": "public",
@@ -40,6 +42,7 @@ STREAMS = {
     "kitchen_purchase_counts": "public",
     "kitchen_item_notes": "public",
     "kitchen_pantry": "public",
+    "kitchen_aisles": "public",
     "kitchen_category_order": "public",
 
     # ---- inventory ----

@@ -361,6 +361,8 @@ def _common_data():
         "server_day_of_year": now.timetuple().tm_yday,
         "server_date": now.strftime("%Y-%m-%d"),
         "date": now.strftime("%A, %B %-d"),
+        "days_clean": (now - datetime(2026, 2, 22)).days,
+        "days_prozac": (now - datetime(2026, 4, 1)).days,
     }
 
 
@@ -442,7 +444,8 @@ def _load_kitchen_data():
     kitchen_purchase_counts = {}
     kitchen_item_notes = {}
     kitchen_pantry = {}
-    kitchen_category_order = ['vegetables','produce','fruit','grains','drinks','snacks','dessert','other','dairy','protein','pharmacy','supplements']
+    kitchen_aisles = {}
+    kitchen_category_order = ['vegetables','produce','fruit','grains','drinks','snacks','dessert','other','@aisles','dairy','protein','pharmacy','supplements']
     kitchen_path = DATA_DIR / "kitchen.json"
     if kitchen_path.exists():
         gdata = json.loads(kitchen_path.read_text())
@@ -451,6 +454,7 @@ def _load_kitchen_data():
         kitchen_purchase_counts = gdata.get("purchase_counts", {})
         kitchen_item_notes = gdata.get("item_notes", {})
         kitchen_pantry = gdata.get("pantry", {})
+        kitchen_aisles = gdata.get("aisles", {})
         kitchen_category_order = gdata.get("category_order", kitchen_category_order)
     return {
         "kitchen_list": kitchen_list,
@@ -458,6 +462,7 @@ def _load_kitchen_data():
         "kitchen_purchase_counts": kitchen_purchase_counts,
         "kitchen_item_notes": kitchen_item_notes,
         "kitchen_pantry": kitchen_pantry,
+        "kitchen_aisles": kitchen_aisles,
         "kitchen_category_order": kitchen_category_order,
     }
 
@@ -672,6 +677,13 @@ def get_data_kitchen():
     data.update(_load_kitchen_data())
     data["meal_notes"] = meal_notes
     data["dev_notes"] = _load_dev_notes().get("tabs", {}).get("kitchen", [])
+
+    kitchen_trips = []
+    trips_path = DATA_DIR / "kitchen_trips.json"
+    if trips_path.exists():
+        kitchen_trips = json.loads(trips_path.read_text()).get("trips", [])
+    data["kitchen_trips"] = kitchen_trips
+
     return jsonify(filter_for_view(data, request.view_mode))
   except Exception as e:
     app.logger.error(f"/api/data/kitchen failed: {e}\n{traceback.format_exc()}")

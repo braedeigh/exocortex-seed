@@ -151,12 +151,18 @@ function updateSkyTheme() {
         // Day
         theme = themes.day;
     } else if (hour < twilightStart) {
-        // Golden hour: day → golden
-        const t = (hour - goldenStart) / (twilightStart - goldenStart);
+        // Golden hour: day → golden. Hold text-day-dark longer, snap to dark mode near the end
+        // so we don't sit in a muddy mid-tone where text and bg both blend to similar luminance.
+        const tRaw = (hour - goldenStart) / (twilightStart - goldenStart);
+        const t = tRaw < 0.7 ? tRaw * 0.2 : 0.14 + (tRaw - 0.7) / 0.3 * 0.86;
         theme = blendThemes(themes.day, themes.golden, t);
     } else {
-        // Twilight: golden → night
-        const t = (hour - twilightStart) / (twilightEnd - twilightStart);
+        // Twilight: golden → night. Use a sharper curve so the mid-blend doesn't
+        // hold a muddy gray-brown with low contrast for very long. Bg darkens
+        // faster than text/border, so text gets the dark-mode flip near the end.
+        const tRaw = (hour - twilightStart) / (twilightEnd - twilightStart);
+        // Snap at 0.7 — under that, hold the warm-day appearance (just slightly dimmed bg)
+        const t = tRaw < 0.7 ? tRaw * 0.25 : 0.175 + (tRaw - 0.7) / 0.3 * 0.825;
         theme = blendThemes(themes.golden, themes.night, t);
     }
 

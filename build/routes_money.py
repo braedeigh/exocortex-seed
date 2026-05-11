@@ -394,12 +394,12 @@ def register(app):
             r["category"] = _categorize(r["desc"], r["amount"], rules)
             # Default include logic:
             #   - Expenses (negative): include unless internal transfer
-            #   - Paychecks / cashouts (positive + matching pattern): include (needed for tax tracking)
+            #   - Vidala paychecks (positive + "vidala"): include (needed for tax tracking)
             #   - Other income / transfers: skip by default
             desc_lower = (r["desc"] or "").lower()
             if r["amount"] < 0:
                 r["include"] = r["category"] not in ("Savings/Transfer", "Transfer (in)")
-            elif "cashout" in desc_lower or "des:cashout" in desc_lower:
+            elif "vidala" in desc_lower or "cashout" in desc_lower or "des:cashout" in desc_lower:
                 # Auto-include real income / reimbursements (paychecks, Venmo cashouts)
                 r["include"] = True
                 if r["category"] == "Income" and "cashout" in desc_lower:
@@ -435,16 +435,39 @@ def register(app):
         ep = DATA_DIR / "expenses.json"
         edata = json.loads(ep.read_text()) if ep.exists() else {"items": []}
         added = 0
+        merged_with_receipt = 0
         for s in selections:
             try:
                 amount = float(s["amount"])
             except (ValueError, TypeError, KeyError):
                 continue
             comments = s.get("desc", "").strip()
+            row_date = s.get("date") or datetime.now().strftime("%Y-%m-%d")
+            row_amount = abs(amount)
+            # Receipt-link dedup: if an existing entry is a receipt-import with the same
+            # date + amount (and same category if both have one), merge bank info INTO that
+            # entry instead of creating a duplicate. The receipt keeps its photo + items,
+            # the bank's title/comments overwrite the placeholder.
+            match = next(
+                (e for e in edata["items"]
+                 if e.get("source") == "receipt_import"
+                 and e.get("date") == row_date
+                 and abs(float(e.get("amount", 0)) - row_amount) < 0.10
+                 and not e.get("bank_matched")),
+                None,
+            )
+            if match:
+                match["comments"] = comments or match.get("comments", "")
+                match["title"] = _label_for(comments)
+                if s.get("category"):
+                    match["category"] = s["category"]
+                match["bank_matched"] = True
+                merged_with_receipt += 1
+                continue
             edata["items"].append({
                 "id": str(uuid.uuid4()),
-                "date": s.get("date") or datetime.now().strftime("%Y-%m-%d"),
-                "amount": abs(amount),  # Always store as positive; sign is implied by category type
+                "date": row_date,
+                "amount": row_amount,
                 "category": s.get("category", ""),
                 "comments": comments,
                 "title": _label_for(comments),
@@ -486,11 +509,12 @@ def register(app):
         return jsonify({
             "ok": True,
             "added": added,
+            "merged_with_receipt": merged_with_receipt,
             "rules_learned": learned,
             "categories_added": new_cats_added,
         })
 
-    # --- Tax Setaside (track 25% obligation from paychecks) ---
+    # --- Tax Setaside (track 25% obligation from Vidala paychecks) ---
 
     @app.route("/api/tax/log", methods=["POST"])
     def log_tax_setaside():

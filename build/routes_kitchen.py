@@ -9,6 +9,7 @@ import shlex
 import subprocess
 import threading
 import time
+import uuid
 
 
 def register(app):
@@ -58,6 +59,14 @@ def register(app):
         name = data["name"]
         kitchen_path = DATA_DIR / "kitchen.json"
         gdata = json.loads(kitchen_path.read_text())
+        # If the item was checked (counted as purchased) at delete time, decrement
+        # the purchase count so the user can undo a mistaken "bought" without
+        # polluting buy-frequency stats. Matches toggle's decrement-on-uncheck.
+        removed = next((i for i in gdata["items"] if i["name"] == name), None)
+        if removed and removed.get("checked"):
+            counts = gdata.setdefault("purchase_counts", {})
+            key = name.lower()
+            counts[key] = max(0, counts.get(key, 0) - 1)
         gdata["items"] = [i for i in gdata["items"] if i["name"] != name]
         kitchen_path.write_text(json.dumps(gdata, indent=2))
         return jsonify({"ok": True})
@@ -138,6 +147,129 @@ def register(app):
         kitchen_path.write_text(json.dumps(gdata, indent=2))
         return jsonify({"ok": True})
 
+    @app.route("/api/kitchen/aisle/set", methods=["POST"])
+    def set_aisle():
+        """Set or clear the aisle number for a catalog item. aisle=null clears.
+        Side effect: also updates category_map so the catalog's grouping logic
+        knows aisle items sit under the @aisles sentinel.
+        """
+        data = request.json or {}
+        name = (data.get("name") or "").strip().lower()
+        aisle = data.get("aisle")
+        if not name:
+            return jsonify({"error": "Empty name"}), 400
+        kitchen_path = DATA_DIR / "kitchen.json"
+        gdata = json.loads(kitchen_path.read_text()) if kitchen_path.exists() else {}
+        aisles = gdata.setdefault("aisles", {})
+        cat_map = gdata.setdefault("category_map", {})
+        if aisle in (None, "", 0):
+            aisles.pop(name, None)
+            # When clearing an aisle, restore to "other" if the category was @aisles
+            if cat_map.get(name) == "@aisles":
+                cat_map[name] = "other"
+        else:
+            try:
+                aisles[name] = int(aisle)
+                cat_map[name] = "@aisles"
+            except (TypeError, ValueError):
+                return jsonify({"error": "Invalid aisle number"}), 400
+        kitchen_path.write_text(json.dumps(gdata, indent=2))
+        return jsonify({"ok": True})
+
+    @app.route("/api/kitchen/location/set", methods=["POST"])
+    def set_location():
+        """Unified picker — set EITHER a section category OR an aisle number for an item.
+        Body: { name, location }. location can be:
+          - "" or null  → clear (default to 'other')
+          - "produce", "dairy", etc. → section category
+          - "aisle:5"  → aisle 5
+        Atomically updates category_map + aisles to keep them consistent.
+        """
+        data = request.json or {}
+        name = (data.get("name") or "").strip().lower()
+        loc = (data.get("location") or "").strip()
+        if not name:
+            return jsonify({"error": "Empty name"}), 400
+        kitchen_path = DATA_DIR / "kitchen.json"
+        gdata = json.loads(kitchen_path.read_text()) if kitchen_path.exists() else {}
+        aisles = gdata.setdefault("aisles", {})
+        cat_map = gdata.setdefault("category_map", {})
+        if loc.startswith("aisle:"):
+            try:
+                n = int(loc.split(":", 1)[1])
+            except (ValueError, IndexError):
+                return jsonify({"error": "Invalid aisle"}), 400
+            aisles[name] = n
+            cat_map[name] = "@aisles"
+        else:
+            aisles.pop(name, None)
+            cat_map[name] = loc or "other"
+        kitchen_path.write_text(json.dumps(gdata, indent=2))
+        return jsonify({"ok": True})
+
+    @app.route("/api/kitchen/category/rename", methods=["POST"])
+    def rename_category():
+        """Rename a category everywhere it appears: category_order, category_map values, items[].category."""
+        data = request.json or {}
+        old = (data.get("old") or "").strip().lower()
+        new = (data.get("new") or "").strip().lower()
+        if not old or not new:
+            return jsonify({"error": "old and new required"}), 400
+        if old == "@aisles" or new == "@aisles":
+            return jsonify({"error": "@aisles is reserved"}), 400
+        if old == new:
+            return jsonify({"ok": True, "noop": True})
+        kitchen_path = DATA_DIR / "kitchen.json"
+        gdata = json.loads(kitchen_path.read_text()) if kitchen_path.exists() else {}
+        # category_order
+        order = gdata.get("category_order") or []
+        if new in order and old in order:
+            # Avoid duplicates — drop the old slot, keep the existing new
+            order = [c for c in order if c != old]
+        else:
+            order = [new if c == old else c for c in order]
+        gdata["category_order"] = order
+        # category_map values
+        cm = gdata.get("category_map") or {}
+        for k, v in list(cm.items()):
+            if v == old:
+                cm[k] = new
+        # items[].category
+        for it in gdata.get("items", []) or []:
+            if it.get("category") == old:
+                it["category"] = new
+        kitchen_path.write_text(json.dumps(gdata, indent=2))
+        return jsonify({"ok": True})
+
+    @app.route("/api/kitchen/category/delete", methods=["POST"])
+    def delete_category():
+        """Remove a category. All items in it move to reassign_to (default 'other')."""
+        data = request.json or {}
+        name = (data.get("name") or "").strip().lower()
+        reassign_to = (data.get("reassign_to") or "other").strip().lower()
+        if not name:
+            return jsonify({"error": "name required"}), 400
+        if name == "@aisles":
+            return jsonify({"error": "@aisles is reserved"}), 400
+        if reassign_to == "@aisles":
+            return jsonify({"error": "Cannot reassign to @aisles"}), 400
+        kitchen_path = DATA_DIR / "kitchen.json"
+        gdata = json.loads(kitchen_path.read_text()) if kitchen_path.exists() else {}
+        order = gdata.get("category_order") or []
+        gdata["category_order"] = [c for c in order if c != name]
+        cm = gdata.get("category_map") or {}
+        moved = 0
+        for k, v in list(cm.items()):
+            if v == name:
+                cm[k] = reassign_to
+                moved += 1
+        for it in gdata.get("items", []) or []:
+            if it.get("category") == name:
+                it["category"] = reassign_to
+                moved += 1
+        kitchen_path.write_text(json.dumps(gdata, indent=2))
+        return jsonify({"ok": True, "moved": moved})
+
     @app.route("/api/kitchen/category-order", methods=["POST"])
     def save_category_order():
         data = request.json
@@ -205,21 +337,40 @@ def register(app):
 
     @app.route("/api/kitchen/catalog/rename", methods=["POST"])
     def rename_catalog_item():
+        """Rename a catalog item. Migrates ALL related maps + preserves user's display casing.
+        new_display preserves the casing the user typed; new_name is the canonical lowercase key.
+        """
         data = request.json
         old = data["old_name"].strip().lower()
-        new = data["new_name"].strip().lower()
+        new_display = data["new_name"].strip()
+        new = new_display.lower()
+        if not new or old == new:
+            return jsonify({"ok": True, "noop": True})
         kitchen_path = DATA_DIR / "kitchen.json"
         gdata = json.loads(kitchen_path.read_text()) if kitchen_path.exists() else {"items": [], "category_map": {}}
-        cat_map = gdata.get("category_map", {})
-        counts = gdata.get("purchase_counts", {})
-        if old in cat_map:
-            cat_map[new] = cat_map.pop(old)
-        if old in counts:
-            counts[new] = counts.pop(old)
-        for item in gdata.get("items", []):
-            if item["name"].lower() == old:
-                item["name"] = new.capitalize()
+        # Migrate every map that's keyed by the catalog name (lowercase)
+        for mapname in ("category_map", "purchase_counts", "aisles", "item_notes", "last_bought", "pantry"):
+            m = gdata.get(mapname)
+            if isinstance(m, dict) and old in m:
+                m[new] = m.pop(old)
+        # Update items on the active list — preserve user's display casing
+        for item in gdata.get("items", []) or []:
+            if item.get("name", "").lower() == old:
+                item["name"] = new_display
         kitchen_path.write_text(json.dumps(gdata, indent=2))
+
+        # Migrate catalog_name in grocery_trips so historic line_items still link
+        trips_path = DATA_DIR / "grocery_trips.json"
+        if trips_path.exists():
+            tdata = json.loads(trips_path.read_text())
+            changed = False
+            for trip in tdata.get("trips", []):
+                for li in trip.get("line_items", []) or []:
+                    if (li.get("catalog_name") or "").lower() == old:
+                        li["catalog_name"] = new
+                        changed = True
+            if changed:
+                trips_path.write_text(json.dumps(tdata, indent=2))
         return jsonify({"ok": True})
 
     @app.route("/api/kitchen/catalog/note", methods=["POST"])
@@ -281,8 +432,22 @@ def register(app):
     BUILD_DIR = Path(__file__).parent
     RECEIPTS_DIR = BUILD_DIR / "receipts"
     GROCERY_RECEIPTS_DIR = RECEIPTS_DIR / "grocery"
+    # Fallback location for parsed receipts when grocery/ is unwriteable for Claude
+    # (older root-owned uploads). Both dirs are scanned by the list/preview/import endpoints.
+    GROCERY_RECEIPTS_DIRS = [RECEIPTS_DIR / "grocery", RECEIPTS_DIR / "grocery_parsed"]
     SESSIONS_PATH = BUILD_DIR / "sessions.json"
     TMUX_SOCKET = "/tmp/tmux-1000/default"
+
+    def _find_parsed_receipt(filename):
+        """Locate a .parsed.json across the search dirs. Returns Path or None."""
+        for d in GROCERY_RECEIPTS_DIRS:
+            p = d / filename
+            try:
+                if p.exists() and str(p.resolve()).startswith(str(d.resolve())):
+                    return p
+            except OSError:
+                continue
+        return None
 
     def _slug(s):
         s = (s or "").lower()
@@ -345,6 +510,15 @@ def register(app):
         target = GROCERY_RECEIPTS_DIR / fname
         f.save(str(target))
 
+        # Flask runs as root; Claude-in-tmux runs as bradie. Make dir + photo
+        # writable so Claude can drop the sibling .parsed.json next to the photo.
+        try:
+            import os
+            os.chmod(GROCERY_RECEIPTS_DIR, 0o777)
+            os.chmod(target, 0o666)
+        except OSError:
+            pass
+
         # Path Claude will see (relative to receipts/ — which is the cwd of the receipts session)
         rel_path = f"grocery/{fname}"
 
@@ -387,33 +561,38 @@ def register(app):
     @app.route("/api/kitchen/parsed-receipts/list")
     def list_parsed_receipts():
         """Return parsed-but-not-yet-imported grocery receipts."""
-        if not GROCERY_RECEIPTS_DIR.exists():
-            return jsonify({"receipts": []})
         results = []
-        for parsed in sorted(GROCERY_RECEIPTS_DIR.glob("*.parsed.json")):
-            marker = parsed.with_suffix(".imported")
-            if marker.exists():
+        seen = set()
+        for d in GROCERY_RECEIPTS_DIRS:
+            if not d.exists():
                 continue
-            try:
-                pdata = json.loads(parsed.read_text())
-            except (json.JSONDecodeError, OSError):
-                continue
-            results.append({
-                "filename": parsed.name,
-                "photo": parsed.name.replace(".parsed.json", ""),
-                "store": pdata.get("store", ""),
-                "date": pdata.get("date", ""),
-                "total": pdata.get("total", 0),
-                "items_count": len(pdata.get("line_items", [])),
-            })
+            for parsed in sorted(d.glob("*.parsed.json")):
+                if parsed.name in seen:
+                    continue
+                seen.add(parsed.name)
+                marker = parsed.with_suffix(".imported")
+                if marker.exists():
+                    continue
+                try:
+                    pdata = json.loads(parsed.read_text())
+                except (json.JSONDecodeError, OSError):
+                    continue
+                results.append({
+                    "filename": parsed.name,
+                    "photo": parsed.name.replace(".parsed.json", ""),
+                    "store": pdata.get("store", ""),
+                    "date": pdata.get("date", ""),
+                    "total": pdata.get("total", 0),
+                    "items_count": len(pdata.get("line_items", [])),
+                })
         return jsonify({"receipts": results})
 
     @app.route("/api/kitchen/parsed-receipts/preview", methods=["POST"])
     def preview_parsed_receipt():
         data = request.json
         filename = data.get("filename", "")
-        path = GROCERY_RECEIPTS_DIR / filename
-        if not path.exists() or not str(path.resolve()).startswith(str(GROCERY_RECEIPTS_DIR.resolve())):
+        path = _find_parsed_receipt(filename)
+        if not path:
             return jsonify({"error": "File not found"}), 404
         pdata = json.loads(path.read_text())
         rules = _load_grocery_rules()
@@ -452,19 +631,23 @@ def register(app):
         selections = data.get("selections", [])
         learn_rules = data.get("learn_rules", [])  # [{match, category, catalog_name}]
         update_pantry = bool(data.get("update_pantry", True))
-        path = GROCERY_RECEIPTS_DIR / filename
-        if not path.exists() or not str(path.resolve()).startswith(str(GROCERY_RECEIPTS_DIR.resolve())):
+        path = _find_parsed_receipt(filename)
+        if not path:
             return jsonify({"error": "File not found"}), 404
         pdata = json.loads(path.read_text())
 
         # Build the trip entry
         included = [s for s in selections if s.get("include")]
+        # Trip item count = total UNITS bought (so 2× rice pudding counts as 2),
+        # matching the receipt's "ITEMS PURCHASED" footer convention.
+        unit_count = sum(int(s.get("qty") or 1) for s in included)
         trip = {
             "date": pdata.get("date") or datetime.now().strftime("%Y-%m-%d"),
             "store": pdata.get("store", ""),
             "total": pdata.get("total", 0),
             "saved": pdata.get("saved", 0),
-            "items": len(included),
+            "items": unit_count,
+            "line_count": len(included),
             "receipt": f"receipts/grocery/{filename.replace('.parsed.json', '')}",
             "line_items": [
                 {
@@ -477,6 +660,49 @@ def register(app):
                 for s in included
             ],
         }
+
+        # Create a Money-tab expense entry for this trip + link the receipt photo to it.
+        # Future bank-statement CSV imports should match by (date, amount) within $0.10
+        # against entries with category='Groceries' to dedup; that match logic lives in
+        # routes_money.py's CSV import handler (TODO).
+        expenses_path = DATA_DIR / "expenses.json"
+        edata = json.loads(expenses_path.read_text()) if expenses_path.exists() else {"items": []}
+        # Idempotency: skip if an expense with same date+amount+receipt already exists
+        receipt_rel = trip["receipt"]
+        existing_expense = next(
+            (e for e in edata["items"]
+             if e.get("date") == trip["date"]
+             and abs(float(e.get("amount", 0)) - float(trip["total"])) < 0.01
+             and e.get("receipt") == receipt_rel),
+            None,
+        )
+        if existing_expense:
+            expense_id = existing_expense["id"]
+        else:
+            expense_id = str(uuid.uuid4())
+            store_label = trip["store"] or "Grocery"
+            comments_bits = [store_label, f"{trip['items']} units"]
+            if trip.get("saved"):
+                comments_bits.append(f"saved ${trip['saved']:.2f}")
+            edata["items"].append({
+                "id": expense_id,
+                "date": trip["date"],
+                "amount": float(trip["total"]),
+                "category": "Groceries",
+                "comments": " · ".join(comments_bits),
+                "receipt": receipt_rel,
+                "source": "receipt_import",
+            })
+            expenses_path.write_text(json.dumps(edata, indent=2))
+
+        # Stamp expense_id back onto the trip so it's bi-directionally linked
+        trip["expense_id"] = expense_id
+
+        # Also register in expense_receipts.json so Money-tab receipt UI shows it
+        er_path = DATA_DIR / "expense_receipts.json"
+        emap = json.loads(er_path.read_text()) if er_path.exists() else {}
+        emap[expense_id] = {"filename": filename.replace(".parsed.json", ""), "parsed": True}
+        er_path.write_text(json.dumps(emap, indent=2))
 
         # Append to grocery_trips.json (or update matching date+store entry)
         trips_path = DATA_DIR / "grocery_trips.json"
@@ -492,20 +718,59 @@ def register(app):
             tdata["trips"].append(trip)
         trips_path.write_text(json.dumps(tdata, indent=2))
 
-        # Update kitchen catalog + pantry from chosen catalog_names
+        # Update kitchen catalog + pantry + purchase counts + aisles from chosen catalog_names
         kitchen_path = DATA_DIR / "kitchen.json"
         gdata = json.loads(kitchen_path.read_text()) if kitchen_path.exists() else {"items": [], "category_map": {}, "pantry": {}}
         cat_map = gdata.setdefault("category_map", {})
         pantry = gdata.setdefault("pantry", {}) if update_pantry else {}
+        counts = gdata.setdefault("purchase_counts", {})
+        aisles = gdata.setdefault("aisles", {})
+        last_bought = gdata.setdefault("last_bought", {})  # name -> YYYY-MM-DD
+        trip_date = trip["date"]
         today = datetime.now().strftime("%Y-%m-%d")
         for s in included:
             cn = (s.get("catalog_name") or "").strip().lower()
             if not cn:
                 continue
             cat_map[cn] = s.get("category", "other")
+            counts[cn] = counts.get(cn, 0) + int(s.get("qty") or 1)
+            last_bought[cn] = trip_date
+            # Aisle: only set when provided (non-empty truthy int). Clearing not supported here.
+            aisle_val = s.get("aisle")
+            if aisle_val not in (None, "", 0):
+                try:
+                    aisles[cn] = int(aisle_val)
+                except (TypeError, ValueError):
+                    pass
             if update_pantry:
                 pantry[cn] = {"added": today}
         kitchen_path.write_text(json.dumps(gdata, indent=2))
+
+        # Also patch kitchen_trips.json (the trip-log table) with totals so the
+        # spend-trend view can use a single source of truth.
+        ktrips_path = DATA_DIR / "kitchen_trips.json"
+        ktdata = json.loads(ktrips_path.read_text()) if ktrips_path.exists() else {"trips": []}
+        patched = False
+        for kt in ktdata["trips"]:
+            if kt.get("date") == trip["date"]:
+                kt["store"] = trip["store"]
+                kt["total"] = trip["total"]
+                kt["saved"] = trip["saved"]
+                kt["items"] = trip["items"]
+                kt["receipt"] = trip["receipt"]
+                patched = True
+                break
+        if not patched:
+            ktdata["trips"].append({
+                "date": trip["date"],
+                "store": trip["store"],
+                "total": trip["total"],
+                "saved": trip["saved"],
+                "items": trip["items"],
+                "receipt": trip["receipt"],
+            })
+            ktdata["trips"].sort(key=lambda t: t.get("date", ""))
+        ktrips_path.write_text(json.dumps(ktdata, indent=2))
 
         # Learn new merchant rules (substring match → category + catalog_name)
         rules = _load_grocery_rules()
